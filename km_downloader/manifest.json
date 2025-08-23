@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "KM系統PPT下載小工具",
+  "version": "1.0",
+  "permissions": ["scripting", "downloads"],
+  "host_permissions": [
+    "https://intmed2.mc.ntu.edu.tw/media/*",
+    "https://intmed2.mc.ntu.edu.tw/sys/*",
+    "http://notes.cm.ntu.edu.tw/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
