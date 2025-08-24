@@ -170,33 +170,89 @@ async function extractAndDownload() {
     // Check video dimensions
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       alert("Video is not loaded or has no dimensions.");
-      return;
-    }
+        return;
+      }
 
     const imageBlobs = [];
-    const frameRate = 10; // Extract 10 frames per second
+    const frameRate = 1; // Check every 1 second
     const duration = video.duration;
+    const threshold = 0.10; // 30% difference threshold
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
+    // Function to calculate frame difference
+    function calculateFrameDifference(imageData1, imageData2) {
+      if (!imageData1 || !imageData2) return 1; // Consider as 100% different if one is missing
+      
+      const data1 = imageData1.data;
+      const data2 = imageData2.data;
+      let diffPixels = 0;
+      const totalPixels = data1.length / 4; // Each pixel has 4 values (RGBA)
+      
+      // Compare every pixel (skip alpha channel for performance)
+      for (let i = 0; i < data1.length; i += 4) {
+        const r1 = data1[i], g1 = data1[i + 1], b1 = data1[i + 2];
+        const r2 = data2[i], g2 = data2[i + 1], b2 = data2[i + 2];
+        
+        // Calculate color difference using Euclidean distance
+        const colorDiff = Math.sqrt((r1-r2)*(r1-r2) + (g1-g2)*(g1-g2) + (b1-b2)*(b1-b2));
+        
+        // If color difference is significant (> 30 in RGB space), count as different
+        if (colorDiff > 30) {
+          diffPixels++;
+        }
+      }
+      
+      return diffPixels / totalPixels;
+    }
+
+    let previousFrameData = null;
+
     for (let time = 0; time < duration; time += frameRate) {
       video.currentTime = time;
+      
       await new Promise(resolve => {
-      video.onseeked = () => {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(blob => {
-        if (blob) {
-          imageBlobs.push(blob);
-        }
-        resolve();
-        }, "image/jpeg");
-      };
+        video.onseeked = () => {
+          try {
+            // Draw current frame
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Get current frame data
+            const currentFrameData = context.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Calculate difference with previous frame
+            const difference = calculateFrameDifference(previousFrameData, currentFrameData);
+            
+            console.log(`Frame at ${time}s: ${(difference * 100).toFixed(1)}% different`);
+            
+            // Only save frame if it's different enough or it's the first frame
+            if (previousFrameData === null || difference > threshold) {
+              canvas.toBlob(blob => {
+                if (blob) {
+                  imageBlobs.push(blob);
+                  console.log(`Saved frame at ${time}s (${imageBlobs.length} frames total)`);
+                }
+                resolve();
+              }, "image/jpeg", 0.8);
+              
+              // Update previous frame data
+              previousFrameData = currentFrameData;
+            } else {
+              console.log(`Skipped frame at ${time}s (too similar)`);
+              resolve();
+            }
+          } catch (err) {
+            console.error("Failed to process frame:", err);
+            resolve();
+          }
+        };
       });
     }
       
+      
     if (imageBlobs.length === 0) {
-      alert("Fail to extract frames.");
+      alert("Fail to extract any frame.");
       return;
     }
     createPdfWrapper(imageBlobs, title);
