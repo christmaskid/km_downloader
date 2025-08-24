@@ -265,22 +265,42 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
   }
 
   async function openFrameManager(imageBlobs, title) {
+    console.log(`openFrameManager called with ${imageBlobs.length} blobs`);
+    
     // Convert blobs to data URLs for messaging
     const frameData = [];
     for (let i = 0; i < imageBlobs.length; i++) {
       const blob = imageBlobs[i];
       
-      // Convert blob to data URL so it can be accessed from extension pages
-      const dataURL = await new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.readAsDataURL(blob);
-      });
+      if (!blob || blob.size === 0) {
+        console.warn(`Skipping empty blob at index ${i}`);
+        continue;
+      }
       
-      frameData.push({
-        url: dataURL, // Use data URL instead of blob URL
-        time: (i * frameRate).toFixed(1)
-      });
+      try {
+        // Convert blob to data URL so it can be accessed from extension pages
+        const dataURL = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        
+        frameData.push({
+          url: dataURL, // Use data URL instead of blob URL
+          time: (i * frameRate).toFixed(1)
+        });
+      } catch (err) {
+        console.error(`Error converting blob ${i} to data URL:`, err);
+      }
+    }
+    
+    console.log(`Processed ${frameData.length} frames for frame manager`);
+    
+    if (frameData.length === 0) {
+      console.error('No valid frames to send to frame manager');
+      alert('No valid frames found to manage');
+      return;
     }
     
     // Send frame data to background script for storage

@@ -5,21 +5,37 @@ let draggedItem = null;
 let title = '';
 
 // Initialize when page loads
-document.addEventListener('DOMContentLoaded', async () => {
-  // Get data from chrome storage
-  const result = await chrome.storage.local.get(['frameData', 'videoTitle']);
-  if (result.frameData && result.videoTitle) {
-    frames = result.frameData;
-    title = result.videoTitle;
-    document.getElementById('title').textContent = `${title} - Frame Manager`;
-    renderFrames();
-    updateStats();
-  } else {
-    document.getElementById('framesContainer').innerHTML = '<div class="loading">No frame data found</div>';
-  }
+// document.addEventListener('DOMContentLoaded', async () => {
+//   // Get data from chrome storage
+//   const result = await chrome.storage.local.get(['frameData', 'videoTitle']);
+//   if (result.frameData && result.videoTitle) {
+//     frames = result.frameData;
+//     title = result.videoTitle;
+//     document.getElementById('title').textContent = `${title} - Frame Manager`;
+//     renderFrames();
+//     updateStats();
+//   } else {
+//     document.getElementById('framesContainer').innerHTML = '<div class="loading">No frame data found</div>';
+//   }
   
-  setupEventListeners();
+//   setupEventListeners();
+// });
+document.addEventListener('DOMContentLoaded', async () => {
+  chrome.runtime.sendMessage({ action: "getFrameData" }, (result) => {
+    if (result?.frameData && result?.videoTitle) {
+      frames = result.frameData;
+      title = result.videoTitle;
+      document.getElementById('title').textContent = `${title} - Frame Manager`;
+      renderFrames();
+      updateStats();
+    } else {
+      document.getElementById('framesContainer').innerHTML = '<div class="loading">No frame data found</div>';
+    }
+
+    setupEventListeners();
+  });
 });
+
 
 function setupEventListeners() {
   document.getElementById('selectAll').addEventListener('click', selectAll);

@@ -22,7 +22,7 @@ Link: pending
 <img src="assets/src_step7.png" alt="alt text" width="25%">
 
 ## TODO
-[] UI to remove unwanted frames
+[x] UI to remove unwanted frames
 
 ## Privacy Policy
 This project does not collect any user data in any form. No original slides as Powerpoint, or any other form such that each slide is not in the format of an image file will be downloaded neither.
