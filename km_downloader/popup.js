@@ -211,73 +211,118 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
       return diffPixels / totalPixels;
     }
 
-    let previousFrameData = null;
+    // Extract timestamps from slide index
+    const slideIndexItems = document.querySelector('.module.mod_media.mod_media-index .indexBox.edit').querySelectorAll('li.idx.js-index-item[data-time]');
+    const timestamps = [];
+    
+    slideIndexItems.forEach(item => {
+      const dataTime = item.getAttribute('data-time');
+      if (dataTime) {
+        const timeInSeconds = parseInt(dataTime) / 1000; // Convert milliseconds to seconds
+        timestamps.push(timeInSeconds);
+      }
+    });
+    
+    console.log(`Found ${timestamps.length} slide timestamps:`, timestamps);
+    
+    // If no timestamps found, fall back to original method
+    if (timestamps.length <= 3) {
+      console.log("No slide timestamps found, using original frame extraction method");
+      let previousFrameData = null;
 
-    for (let time = 0; time < duration; time += frameRate) {
-      video.currentTime = time;
+      for (let time = 0; time < duration; time += frameRate) {
+        video.currentTime = time;
+        
+        await new Promise(resolve => {
+          video.onseeked = () => {
+            try {
+              // Draw current frame
+              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+              
+              // Get current frame data
+              const currentFrameData = context.getImageData(0, 0, canvas.width, canvas.height);
+              
+              // Calculate difference with previous frame
+              const difference = calculateFrameDifference(previousFrameData, currentFrameData);
+              
+              // Only save frame if it's different enough or it's the first frame
+              if (previousFrameData === null || difference > differenceThreshold) {
+                canvas.toBlob(blob => {
+                  if (blob) {
+                    imageBlobs.push(blob);
+                    console.log(`Frame at ${time}s: ${(difference * 100).toFixed(1)}% different`);
+                    console.log(`Saved frame at ${time}s (${imageBlobs.length} frames total)`);
+                  }
+                  resolve();
+                }, "image/jpeg", 1.0);
+                
+                // Update previous frame data
+                previousFrameData = currentFrameData;
+              } else {
+                // console.log(`Skipped frame at ${time}s (too similar)`);
+                resolve();
+              }
+            } catch (err) {
+              console.error("Failed to process frame:", err);
+              resolve();
+            }
+          };
+        });
+      }
+      console.log(`Extracted ${imageBlobs.length} frames from video of duration ${duration}s`);
       
-      await new Promise(resolve => {
-        video.onseeked = () => {
-          try {
-            // Draw current frame
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Get current frame data
-            const currentFrameData = context.getImageData(0, 0, canvas.width, canvas.height);
-            context.getImage
-            
-            // Calculate difference with previous frame
-            const difference = calculateFrameDifference(previousFrameData, currentFrameData);
-            
-            // Only save frame if it's different enough or it's the first frame
-            if (previousFrameData === null || difference > differenceThreshold) {
+      // Instead of creating PDF directly, open frame manager
+      if (imageBlobs.length === 0) {
+        alert("Fail to extract any frame.");
+        return;
+      }
+      await openFrameManager(imageBlobs, title);
+
+    } else {
+      // Use slide timestamps for precise frame extraction
+      for (let i = 0; i < timestamps.length; i++) {
+        const time = timestamps[i];
+        video.currentTime = time;
+        
+        await new Promise(resolve => {
+          video.onseeked = () => {
+            try {
+              // Draw current frame
+              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+              
               canvas.toBlob(blob => {
                 if (blob) {
                   imageBlobs.push(blob);
-                  console.log(`Frame at ${time}s: ${(difference * 100).toFixed(1)}% different`);
-                  console.log(`Saved frame at ${time}s (${imageBlobs.length} frames total)`);
+                  console.log(`Captured slide ${i + 1} at ${time}s`);
                 }
                 resolve();
               }, "image/jpeg", 1.0);
-              
-              // Update previous frame data
-              previousFrameData = currentFrameData;
-            } else {
-              // console.log(`Skipped frame at ${time}s (too similar)`);
+            } catch (err) {
+              console.error(`Failed to capture slide ${i + 1} at ${time}s:`, err);
               resolve();
             }
-          } catch (err) {
-            console.error("Failed to process frame:", err);
-            resolve();
-          }
-        };
-      });
-    }
-      
-      
-    if (imageBlobs.length === 0) {
-      alert("Fail to extract any frame.");
-      return;
-    }
-    
-    // Instead of creating PDF directly, open frame manager
-    await openFrameManager(imageBlobs, title);
-  }
-
-  async function openFrameManager(imageBlobs, title) {
-    console.log(`openFrameManager called with ${imageBlobs.length} blobs`);
-    
-    // Convert blobs to data URLs for messaging
-    const frameData = [];
-    for (let i = 0; i < imageBlobs.length; i++) {
-      const blob = imageBlobs[i];
-      
-      if (!blob || blob.size === 0) {
-        console.warn(`Skipping empty blob at index ${i}`);
-        continue;
+          };
+        });
       }
       
-      try {
+      if (imageBlobs.length === 0) {
+        alert("Fail to extract any frame.");
+        return;
+      }
+      createPdfWrapper(imageBlobs, title);
+    }
+  }
+  async function openFrameManager(imageBlobs, title) {
+    console.log("openFrameManager called with ${imageBlobs.length} blobs");
+    // Convert blobs to data URLs for messaging 
+    const frameData = []; 
+    for (let i = 0; i < imageBlobs.length; i++) {
+      const blob = imageBlobs[i]; 
+      if (!blob || blob.size === 0) { 
+        console.warn("Skipping empty blob at index ${i}"); 
+        continue; 
+      } 
+      try { 
         // Convert blob to data URL so it can be accessed from extension pages
         const dataURL = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -285,7 +330,6 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
           reader.onerror = reject;
           reader.readAsDataURL(blob);
         });
-        
         frameData.push({
           url: dataURL, // Use data URL instead of blob URL
           time: (i * frameRate).toFixed(1)
@@ -294,22 +338,19 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
         console.error(`Error converting blob ${i} to data URL:`, err);
       }
     }
-    
     console.log(`Processed ${frameData.length} frames for frame manager`);
-    
     if (frameData.length === 0) {
       console.error('No valid frames to send to frame manager');
       alert('No valid frames found to manage');
       return;
     }
-    
     // Send frame data to background script for storage
     chrome.runtime.sendMessage({
       action: "storeFrameData",
       frameData: frameData,
       videoTitle: title
     });
-  }
+}
 
   var titleDiv = document.querySelector("div.title.pull-left");
   if (!titleDiv) {

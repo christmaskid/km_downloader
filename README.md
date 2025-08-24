@@ -18,11 +18,25 @@ Link: pending
 ![alt text](assets/src_step5.png)
 6. Go to your webpage and click the extension button to find "KM downloader".
 ![alt text](assets/src_step6.png)
-7. Click "start". If the desired target is a video, please hover your mouse onto the video time bar to see extraction progress.
-<img src="assets/src_step7.png" alt="alt text" width="25%">
+7. Click the blue button to start download/extraction. If the desired target is a video, you can hover your mouse onto the video time bar to see extraction progress.
+<img src="assets/src_step7.png" alt="alt text" width="75%">
 
-## TODO
-[x] UI to remove unwanted frames
+### Video download
+- Resolution
+You can pick the video resolution by 
+    - checking the "auto-select" box: then the highest quality video source will be used
+    - uncheck the box and select the resolution on your own: the current resolution will be used (showed at the rightmost of the bottom bar in the video frame)
+
+#### If there is an index list
+Screenshots will be made at the marked timestamps, and no other work will be required. You'll get a combined PDF directly.
+#### If there is not index list
+This is unfortunately a more difficult 
+The determination of a "new page" will be according to the "difference" between two extracted frames at a fixed interval. You can adjust these parameters:
+- Extraction frame rate
+- Difference threshold
+
+These two parameters will be ignored if not in this case.
+
 
 ## Privacy Policy
 This project does not collect any user data in any form. No original slides as Powerpoint, or any other form such that each slide is not in the format of an image file will be downloaded neither.
