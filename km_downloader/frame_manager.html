@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Frame Manager</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .header h2 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+    
+    .stats {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .controls {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .controls button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .btn-primary {
+      background: #4285f4;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #3367d6;
+    }
+    
+    .btn-secondary {
+      background: #f8f9fa;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+    
+    .btn-secondary:hover {
+      background: #e9ecef;
+    }
+    
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background: #c82333;
+    }
+    
+    .frames-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    
+    .frame-item {
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      cursor: move;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+    
+    .frame-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .frame-item.dragging {
+      transform: rotate(5deg);
+      opacity: 0.8;
+      z-index: 1000;
+    }
+    
+    .frame-item.selected {
+      border: 3px solid #4285f4;
+    }
+    
+    .frame-image {
+      width: 100%;
+      height: 150px;
+      object-fit: contain;
+      background: #f8f9fa;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .frame-info {
+      padding: 12px;
+    }
+    
+    .frame-number {
+      font-weight: bold;
+      color: #4285f4;
+      margin-bottom: 4px;
+    }
+    
+    .frame-time {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    
+    .frame-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .frame-actions button {
+      padding: 4px 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    
+    .delete-btn {
+      background: #dc3545;
+      color: white;
+    }
+    
+    .delete-btn:hover {
+      background: #c82333;
+    }
+    
+    .move-btn {
+      background: #6c757d;
+      color: white;
+    }
+    
+    .move-btn:hover {
+      background: #5a6268;
+    }
+    
+    .drop-zone {
+      min-height: 200px;
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      font-size: 18px;
+      background: rgba(66, 133, 244, 0.05);
+    }
+    
+    .drop-zone.drag-over {
+      border-color: #4285f4;
+      background: rgba(66, 133, 244, 0.1);
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    
+    .selection-info {
+      background: #e3f2fd;
+      border: 1px solid #2196f3;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 14px;
+      color: #1976d2;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2 id="title">Frame Manager</h2>
+    <div class="stats">
+      <span id="frameCount">0 frames</span> extracted
+    </div>
+  </div>
+  
+  <div class="controls">
+    <button id="selectAll" class="btn-secondary">Select All</button>
+    <button id="selectNone" class="btn-secondary">Select None</button>
+    <button id="deleteSelected" class="btn-danger">Delete Selected</button>
+    <div class="selection-info">
+      <span id="selectedCount">0</span> frames selected
+    </div>
+    <div style="margin-left: auto;">
+      <button id="downloadPDF" class="btn-primary">Download PDF</button>
+      <button id="cancel" class="btn-secondary">Cancel</button>
+    </div>
+  </div>
+  
+  <div id="framesContainer" class="frames-container">
+    <div class="loading">Loading frames...</div>
+  </div>
+  
+  <script src="frame_manager.js"></script>
+</body>
+</html>

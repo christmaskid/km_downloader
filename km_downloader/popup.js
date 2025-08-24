@@ -224,6 +224,7 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
             
             // Get current frame data
             const currentFrameData = context.getImageData(0, 0, canvas.width, canvas.height);
+            context.getImage
             
             // Calculate difference with previous frame
             const difference = calculateFrameDifference(previousFrameData, currentFrameData);
@@ -258,7 +259,36 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
       alert("Fail to extract any frame.");
       return;
     }
-    createPdfWrapper(imageBlobs, title);
+    
+    // Instead of creating PDF directly, open frame manager
+    await openFrameManager(imageBlobs, title);
+  }
+
+  async function openFrameManager(imageBlobs, title) {
+    // Convert blobs to data URLs for messaging
+    const frameData = [];
+    for (let i = 0; i < imageBlobs.length; i++) {
+      const blob = imageBlobs[i];
+      
+      // Convert blob to data URL so it can be accessed from extension pages
+      const dataURL = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+      
+      frameData.push({
+        url: dataURL, // Use data URL instead of blob URL
+        time: (i * frameRate).toFixed(1)
+      });
+    }
+    
+    // Send frame data to background script for storage
+    chrome.runtime.sendMessage({
+      action: "storeFrameData",
+      frameData: frameData,
+      videoTitle: title
+    });
   }
 
   var titleDiv = document.querySelector("div.title.pull-left");

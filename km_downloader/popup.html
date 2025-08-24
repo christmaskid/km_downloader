@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <style>
     body {
-      width: 300px;
+      width: 320px;
       padding: 20px;
     }
     button {
@@ -25,7 +25,7 @@
       display: flex;
       align-items: center;
     }
-    .option input {
+    .option input[type="checkbox"] {
       margin-right: 8px;
     }
     .option label {
@@ -40,7 +40,7 @@
     }
     .input-group label {
       font-size: 14px;
-      min-width: 120px;
+      min-width: 140px;
     }
     .input-group input[type="number"] {
       padding: 5px;
@@ -56,14 +56,13 @@
   </style>
 </head>
 <body>
-  <h3>Download Media as PDF</h3>
-  <button id="start">Start</button>
-  <div id="status"></div>
+  <h3>KM Downloader</h3>
+  
   <div class="option">
     <input type="checkbox" id="selectBestQuality" checked>
     <label for="selectBestQuality">Auto-select best video quality</label>
   </div>
-
+  
   <div class="input-group">
     <label for="frameRate">Frame extraction rate:</label>
     <input type="number" id="frameRate" value="1" min="0.1" step="0.1" max="10">
@@ -71,12 +70,13 @@
   </div>
   
   <div class="input-group">
-    <label for="differenceThreshold">Frame difference threshold:</label>
-    <input type="number" id="differenceThreshold" value="20" min="1" step="1" max="99">
+    <label for="differenceThreshold">Difference threshold:</label>
+    <input type="number" id="differenceThreshold" value="20" min="1" step="1" max="100">
     <span class="unit">%</span>
   </div>
-
-  <script src="libs/pdf-lib.min.js"></script>
+  
+  <button id="start">Download Slides/Video Frames</button>
+  
   <script src="popup.js"></script>
 </body>
 </html>
