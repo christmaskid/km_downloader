@@ -1,5 +1,7 @@
 document.getElementById("start").addEventListener("click", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const selectBestQuality = document.getElementById("selectBestQuality").checked;
+  const frameRate = parseFloat(document.getElementById("frameRate").value) || 1;
 
   // Step 1: Inject pdf-lib.min.js into the page
   await chrome.scripting.executeScript({
@@ -10,12 +12,13 @@ document.getElementById("start").addEventListener("click", async () => {
   // Step 2: Inject and run extractAndDownload
   await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    function: extractAndDownload
+    function: extractAndDownload,
+    args: [selectBestQuality, frameRate]
   });
 });
 
-async function extractAndDownload() {
-  
+async function extractAndDownload(selectBestQuality, frameRate) {
+
   async function createPdf(imageBlobs) {
     const pdfDoc = await PDFLib.PDFDocument.create();
     let successCount = 0;
@@ -125,6 +128,8 @@ async function extractAndDownload() {
   }
 
   async function downloadSlidesFromVideo(videoDiv, title) {
+    console.log("Video div:", videoDiv);
+
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
     const video = videoDiv.querySelector("video");
@@ -171,15 +176,15 @@ async function extractAndDownload() {
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       alert("Video is not loaded or has no dimensions.");
         return;
-      }
+    }
 
     const imageBlobs = [];
-    const frameRate = 1; // Check every 1 second
     const duration = video.duration;
     const threshold = 0.10; // 30% difference threshold
+    const saveSizeConst = 1;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth * saveSizeConst;
+    canvas.height = video.videoHeight * saveSizeConst;
 
     // Function to calculate frame difference
     function calculateFrameDifference(imageData1, imageData2) {
@@ -224,22 +229,21 @@ async function extractAndDownload() {
             // Calculate difference with previous frame
             const difference = calculateFrameDifference(previousFrameData, currentFrameData);
             
-            console.log(`Frame at ${time}s: ${(difference * 100).toFixed(1)}% different`);
-            
             // Only save frame if it's different enough or it's the first frame
             if (previousFrameData === null || difference > threshold) {
               canvas.toBlob(blob => {
                 if (blob) {
                   imageBlobs.push(blob);
+                  console.log(`Frame at ${time}s: ${(difference * 100).toFixed(1)}% different`);
                   console.log(`Saved frame at ${time}s (${imageBlobs.length} frames total)`);
                 }
                 resolve();
-              }, "image/jpeg", 0.8);
+              }, "image/jpeg", 1.0);
               
               // Update previous frame data
               previousFrameData = currentFrameData;
             } else {
-              console.log(`Skipped frame at ${time}s (too similar)`);
+              // console.log(`Skipped frame at ${time}s (too similar)`);
               resolve();
             }
           } catch (err) {
@@ -273,7 +277,40 @@ async function extractAndDownload() {
   if (mediaDiv) {
     downloadSlides(mediaDiv, title);
   } else if (videoDiv) {
-    downloadSlidesFromVideo(videoDiv, title);
+    if (selectBestQuality) {
+      const resolutionSelect = document.querySelector('div.cog-resolution select');
+      if (resolutionSelect) {
+        // Find the highest resolution option
+        const options = Array.from(resolutionSelect.options);
+        let bestOption = null;
+        let maxResolution = 0;
+        
+        options.forEach(option => {
+          const resolution = option.getAttribute('resolution');
+          if (resolution) {
+            // Extract width from resolution like "1920 x 1080"
+            const width = parseInt(resolution.split(' x ')[0]);
+            if (width > maxResolution) {
+              maxResolution = width;
+              bestOption = option;
+            }
+          }
+        });
+        
+        if (bestOption && maxResolution >= 1280) {
+          console.log(`Selecting highest resolution: ${bestOption.getAttribute('resolution')}`);
+          resolutionSelect.value = bestOption.value;
+          
+          // Trigger change event to apply the resolution
+          resolutionSelect.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          // Wait for the video to reload with new resolution
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    }
+    const videoDiv_new = document.querySelector('#fsPlayer .fs-videoWrap');
+    downloadSlidesFromVideo(videoDiv_new, title);
   } else {
     // Download slides from video
     alert("Media container not found.");
