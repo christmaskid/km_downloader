@@ -21,6 +21,8 @@ Link: pending
 7. Click "start". If the desired target is a video, please hover your mouse onto the video time bar to see extraction progress.
 <img src="assets/src_step7.png" alt="alt text" width="25%">
 
+## TODO
+[] UI to remove unwanted frames
 
 ## Privacy Policy
 This project does not collect any user data in any form. No original slides as Powerpoint, or any other form such that each slide is not in the format of an image file will be downloaded neither.

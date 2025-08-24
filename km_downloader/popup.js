@@ -2,6 +2,7 @@ document.getElementById("start").addEventListener("click", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const selectBestQuality = document.getElementById("selectBestQuality").checked;
   const frameRate = parseFloat(document.getElementById("frameRate").value) || 1;
+  const differenceThreshold = parseFloat(document.getElementById("differenceThreshold").value) / 100 || 0.2;
 
   // Step 1: Inject pdf-lib.min.js into the page
   await chrome.scripting.executeScript({
@@ -13,11 +14,11 @@ document.getElementById("start").addEventListener("click", async () => {
   await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     function: extractAndDownload,
-    args: [selectBestQuality, frameRate]
+    args: [selectBestQuality, frameRate, differenceThreshold]
   });
 });
 
-async function extractAndDownload(selectBestQuality, frameRate) {
+async function extractAndDownload(selectBestQuality, frameRate, differenceThreshold) {
 
   async function createPdf(imageBlobs) {
     const pdfDoc = await PDFLib.PDFDocument.create();
@@ -180,11 +181,11 @@ async function extractAndDownload(selectBestQuality, frameRate) {
 
     const imageBlobs = [];
     const duration = video.duration;
-    const threshold = 0.10; // 30% difference threshold
     const saveSizeConst = 1;
 
     canvas.width = video.videoWidth * saveSizeConst;
     canvas.height = video.videoHeight * saveSizeConst;
+    const colorDiffThreshold = 30; // hyperparameter
 
     // Function to calculate frame difference
     function calculateFrameDifference(imageData1, imageData2) {
@@ -202,11 +203,9 @@ async function extractAndDownload(selectBestQuality, frameRate) {
         
         // Calculate color difference using Euclidean distance
         const colorDiff = Math.sqrt((r1-r2)*(r1-r2) + (g1-g2)*(g1-g2) + (b1-b2)*(b1-b2));
-        
-        // If color difference is significant (> 30 in RGB space), count as different
-        if (colorDiff > 30) {
-          diffPixels++;
-        }
+
+        // If color difference is significant (> colorDiffThreshold in RGB space), count as different
+        if (colorDiff > colorDiffThreshold) { diffPixels++;}
       }
       
       return diffPixels / totalPixels;
@@ -230,7 +229,7 @@ async function extractAndDownload(selectBestQuality, frameRate) {
             const difference = calculateFrameDifference(previousFrameData, currentFrameData);
             
             // Only save frame if it's different enough or it's the first frame
-            if (previousFrameData === null || difference > threshold) {
+            if (previousFrameData === null || difference > differenceThreshold) {
               canvas.toBlob(blob => {
                 if (blob) {
                   imageBlobs.push(blob);
