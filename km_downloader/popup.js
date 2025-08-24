@@ -276,7 +276,7 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
         alert("Fail to extract any frame.");
         return;
       }
-      await openFrameManager(imageBlobs, title);
+      await openFrameManagerWrapper(imageBlobs, title);
 
     } else {
       // Use slide timestamps for precise frame extraction
@@ -309,17 +309,18 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
         alert("Fail to extract any frame.");
         return;
       }
-      createPdfWrapper(imageBlobs, title);
+      // createPdfWrapper(imageBlobs, title);
+      await openFrameManagerWrapper(imageBlobs, title);
     }
   }
-  async function openFrameManager(imageBlobs, title) {
-    console.log("openFrameManager called with ${imageBlobs.length} blobs");
-    // Convert blobs to data URLs for messaging 
+  async function openFrameManagerWrapper(imageBlobs, title) {
+    console.log(`openFrameManagerWrapper called with ${imageBlobs.length} blobs`);
+    // Convert blobs to data URLs for messaging
     const frameData = []; 
     for (let i = 0; i < imageBlobs.length; i++) {
-      const blob = imageBlobs[i]; 
-      if (!blob || blob.size === 0) { 
-        console.warn("Skipping empty blob at index ${i}"); 
+      const blob = imageBlobs[i];
+      if (!blob || blob.size === 0) {
+        console.warn(`Skipping empty blob at index ${i}`);
         continue; 
       } 
       try { 
@@ -345,11 +346,17 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
       return;
     }
     // Send frame data to background script for storage
-    chrome.runtime.sendMessage({
-      action: "storeFrameData",
-      frameData: frameData,
-      videoTitle: title
-    });
+    for (let i = 0; i < frameData.length; i += 50) {
+      const chunk = frameData.slice(i, i + 50);
+      await chrome.runtime.sendMessage({
+        action: "storeFrameDataChunk",
+        chunk,
+        isFinal: (i + 50 >= frameData.length),
+        videoTitle: (i === 0 ? title : undefined)
+      });
+    }
+
+    chrome.runtime.sendMessage({ action: "openFrameManager" });
 }
 
   var titleDiv = document.querySelector("div.title.pull-left");

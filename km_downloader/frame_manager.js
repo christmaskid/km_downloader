@@ -20,21 +20,76 @@ let title = '';
   
 //   setupEventListeners();
 // });
-document.addEventListener('DOMContentLoaded', async () => {
-  chrome.runtime.sendMessage({ action: "getFrameData" }, (result) => {
-    if (result?.frameData && result?.videoTitle) {
-      frames = result.frameData;
-      title = result.videoTitle;
-      document.getElementById('title').textContent = `${title} - Frame Manager`;
-      renderFrames();
-      updateStats();
-    } else {
-      document.getElementById('framesContainer').innerHTML = '<div class="loading">No frame data found</div>';
-    }
+// document.addEventListener('DOMContentLoaded', async () => {
+//   chrome.runtime.sendMessage({ action: "getFrameData" }, (result) => {
+//     if (result?.frameData && result?.videoTitle) {
+//       frames = result.frameData;
+//       title = result.videoTitle;
+//       document.getElementById('title').textContent = `${title} - Frame Manager`;
+//       renderFrames();
+//       updateStats();
+//     } else {
+//       document.getElementById('framesContainer').innerHTML = '<div class="loading">No frame data found</div>';
+//     }
 
-    setupEventListeners();
-  });
+//     setupEventListeners();
+//   });
+// });
+document.addEventListener('DOMContentLoaded', () => {
+  setupEventListeners();
+  
+  // Show loading message initially
+  document.getElementById('framesContainer').innerHTML = '<div class="loading">Waiting for frame data...</div>';
 });
+
+// Listen for messages with frame data
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'loadFrameData') {
+    frames = request.frameData || [];
+    title = request.videoTitle || 'Unknown Video';
+    
+    document.getElementById('title').textContent = `${title} - Frame Manager`;
+    renderFrames();
+    updateStats();
+    
+    sendResponse({ success: true });
+  }
+  
+  if (request.action === 'loadFrameBatch') {
+    console.log("Load frame batch:", request);
+    
+    // Initialize if this is the first batch
+    if (request.isFirst) {
+      frames = [];
+      selectedFrames.clear();
+      title = request.videoTitle || 'Unknown Video';
+      document.getElementById('title').textContent = `${title} - Frame Manager`;
+      // Clear the initial loading message
+      document.getElementById('framesContainer').innerHTML = '';
+    }
+    
+    // Add new frames to existing array and render them incrementally
+    const startIndex = frames.length;
+    const newFrames = request.frameData || [];
+    frames.push(...newFrames);
+    
+    // Append only the new frames (more efficient than re-rendering all)
+    appendNewFrames(newFrames, startIndex);
+    updateStats();
+    
+    // Update or add loading status if more batches are expected
+    if (!request.isFinal) {
+      updateLoadingStatus(`Loading more frames... (${frames.length} loaded)`);
+    } else {
+      // Remove loading indicator when done
+      removeLoadingStatus();
+      console.log(`Finished loading ${frames.length} total frames`);
+    }
+    
+    sendResponse({ success: true });
+  }
+});
+
 
 
 function setupEventListeners() {
@@ -58,6 +113,34 @@ function renderFrames() {
     const frameItem = createFrameElement(frame, index);
     container.appendChild(frameItem);
   });
+}
+
+// Efficiently append only new frames without re-rendering existing ones
+function appendNewFrames(newFrames, startIndex) {
+  const container = document.getElementById('framesContainer');
+  
+  // Remove any existing loading indicators before adding new frames
+  removeLoadingStatus();
+  
+  newFrames.forEach((frame, batchIndex) => {
+    const globalIndex = startIndex + batchIndex;
+    const frameItem = createFrameElement(frame, globalIndex);
+    container.appendChild(frameItem);
+  });
+}
+
+function updateLoadingStatus(message) {
+  removeLoadingStatus(); // Remove existing loading status
+  const container = document.getElementById('framesContainer');
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'loading-more';
+  loadingDiv.textContent = message;
+  container.appendChild(loadingDiv);
+}
+
+function removeLoadingStatus() {
+  const loadingElements = document.querySelectorAll('.loading-more, .loading');
+  loadingElements.forEach(el => el.remove());
 }
 
 function createFrameElement(frame, index) {
@@ -142,7 +225,17 @@ function toggleSelection(index) {
   } else {
     selectedFrames.add(index);
   }
-  renderFrames();
+  
+  // Just update the specific frame element's selection state
+  const frameElement = document.querySelector(`[data-index="${index}"]`);
+  if (frameElement) {
+    if (selectedFrames.has(index)) {
+      frameElement.classList.add('selected');
+    } else {
+      frameElement.classList.remove('selected');
+    }
+  }
+  
   updateStats();
 }
 
@@ -345,7 +438,6 @@ async function createPDFDirectly() {
 }
 
 function cancel() {
-  // Clear storage and close window
-  chrome.storage.local.remove(['frameData', 'videoTitle']);
+  // Close window (no storage to clear since we're using in-memory data)
   window.close();
 }
