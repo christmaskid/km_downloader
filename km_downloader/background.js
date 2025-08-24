@@ -6,4 +6,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       saveAs: true
     });
   }
+  if (message.action === "downloadVideo") {
+    chrome.downloads.download({
+      url: message.url,
+      filename: message.filename,
+      saveAs: true
+    });
+  }
 });
