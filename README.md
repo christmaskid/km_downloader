@@ -4,8 +4,8 @@
 
 ## Access
 ### Chrome extension store
-Link: pending
-還在審核，QQ，我又沒收集個資為什麼這麼難過...
+Link: https://chromewebstore.google.com/detail/km%E7%B3%BB%E7%B5%B1ppt%E4%B8%8B%E8%BC%89%E5%B0%8F%E5%B7%A5%E5%85%B7/midljoaeebpamehboknphanpdakadmll
+給我星星 謝謝
 
 ### Install from source
 1. Download ZIP
