@@ -59,19 +59,35 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
+function sanitizeDownloadFilename(filename, fallback) {
+  const sanitized = String(filename || fallback)
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
+    .trim()
+    .replace(/[. ]+$/, "");
+  return sanitized || fallback;
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "downloadPDF") {
     chrome.downloads.download({
       url: message.url,
-      filename: message.filename,
+      filename: sanitizeDownloadFilename(message.filename, "download.pdf"),
       saveAs: true
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error("PDF download failed:", chrome.runtime.lastError.message);
+      }
     });
   }
   if (message.action === "downloadVideo") {
     chrome.downloads.download({
       url: message.url,
-      filename: message.filename,
+      filename: sanitizeDownloadFilename(message.filename, "download.mp4"),
       saveAs: true
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error("Video download failed:", chrome.runtime.lastError.message);
+      }
     });
   }
   

@@ -1,24 +1,46 @@
 document.getElementById("start").addEventListener("click", async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const selectBestQuality = document.getElementById("selectBestQuality").checked;
-  const frameRate = parseFloat(document.getElementById("frameRate").value) || 1;
-  const differenceThreshold = parseFloat(document.getElementById("differenceThreshold").value) / 100 || 0.2;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) {
+      throw new Error("Active tab not found.");
+    }
+    const selectBestQuality = document.getElementById("selectBestQuality").checked;
+    const frameRate = parseFloat(document.getElementById("frameRate").value) || 1;
+    const differenceThreshold = parseFloat(document.getElementById("differenceThreshold").value) / 100 || 0.2;
 
-  // Step 1: Inject pdf-lib.min.js into the page
-  await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    files: ["libs/pdf-lib.min.js"]
-  });
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["libs/pdf-lib.min.js"]
+    });
 
-  // Step 2: Inject and run extractAndDownload
-  await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    function: extractAndDownload,
-    args: [selectBestQuality, frameRate, differenceThreshold]
-  });
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id, allFrames: true },
+      func: extractAndDownload,
+      args: [selectBestQuality, frameRate, differenceThreshold]
+    });
+  } catch (error) {
+    console.error("Failed to start extraction:", error);
+    alert(`Failed to start extraction: ${error.message}`);
+  }
 });
 
 async function extractAndDownload(selectBestQuality, frameRate, differenceThreshold) {
+
+  async function waitForVideo() {
+    let video = document.querySelector("video");
+    if (video || location.hostname !== "fms.ntuh.gov.tw") {
+      return video;
+    }
+
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      video = document.querySelector("video");
+      if (video) {
+        return video;
+      }
+    }
+    return null;
+  }
 
   async function createPdf(imageBlobs) {
     const pdfDoc = await PDFLib.PDFDocument.create();
@@ -133,7 +155,8 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
 
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
-    const video = videoDiv.querySelector("video");
+    const video = videoDiv.matches?.("video") ? videoDiv : videoDiv.querySelector("video");
+    console.log(video);
 
     if (!video) {
       alert("Video element not found.");
@@ -212,7 +235,8 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
     }
 
     // Extract timestamps from slide index
-    const slideIndexItems = document.querySelector('.module.mod_media.mod_media-index .indexBox.edit').querySelectorAll('li.idx.js-index-item[data-time]');
+    const slideIndex = document.querySelector('.module.mod_media.mod_media-index .indexBox.edit');
+    const slideIndexItems = slideIndex?.querySelectorAll('li.idx.js-index-item[data-time]') || [];
     const timestamps = [];
     
     slideIndexItems.forEach(item => {
@@ -280,8 +304,19 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
 
     } else {
       // Use slide timestamps for precise frame extraction
-      for (let i = 0; i < timestamps.length; i++) {
-        const time = timestamps[i];
+      // --- 修改：計算每兩個timestamp的中間時間 ---
+      const captureTimes = [];
+      for (let i = 0; i < timestamps.length - 1; i++) {
+        const mid = (timestamps[i] + timestamps[i + 1]) / 2;
+        captureTimes.push(mid);
+      }
+      // 最後一張用最後一個timestamp
+      if (timestamps.length > 0) {
+        captureTimes.push(timestamps[timestamps.length - 1]);
+      }
+
+      for (let i = 0; i < captureTimes.length; i++) {
+        const time = captureTimes[i];
         video.currentTime = time;
         
         await new Promise(resolve => {
@@ -363,17 +398,19 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
   if (!titleDiv) {
     titleDiv = document.querySelector("#titlePanel .title.text-overflow");
   }
-  const title = titleDiv?.innerText.trim() || "Untitled";
+  const title = titleDiv?.innerText.trim() || document.title || "Untitled";
   const mediaDiv = document.querySelector("div.module.app-media.app-media-xbox_doc");
   const videoDiv = document.querySelector('#fsPlayer .fs-videoWrap');
+  const iframeVideo = await waitForVideo();
+  const slideImages = mediaDiv?.querySelectorAll("img");
   console.log(title);
-  // console.log(videoDiv);
+  console.log(videoDiv);
   
   
   // Download slides directly
-  if (mediaDiv) {
+  if (mediaDiv && slideImages?.length > 0) {
     downloadSlides(mediaDiv, title);
-  } else if (videoDiv) {
+  } else if (videoDiv || iframeVideo) {
     if (selectBestQuality) {
       const resolutionSelect = document.querySelector('div.cog-resolution select');
       if (resolutionSelect) {
@@ -406,11 +443,14 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
         }
       }
     }
-    const videoDiv_new = document.querySelector('#fsPlayer .fs-videoWrap');
+    const videoDiv_new = document.querySelector('#fsPlayer .fs-videoWrap') || document.querySelector("video");
     downloadSlidesFromVideo(videoDiv_new, title);
   } else {
-    // Download slides from video
-    alert("Media container not found.");
+    // This frame does not contain media. Another injected frame may contain it.
+    console.log("Media container not found in this frame.");
+    if (location.hostname === "fms.ntuh.gov.tw") {
+      alert("Video element not found in the FMS player.");
+    }
     return;
   }
 

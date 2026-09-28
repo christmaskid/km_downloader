@@ -2,6 +2,10 @@
 針對KM學習系統中公開的PPT檔案，彙整所有圖檔並合併成完整的PDF供使用者下載。
 只會對台大醫學院內科網站和醫學系共筆大平台開放使用，不會有其他任何網站的權限。
 
+## Update records
+- v1.2: update for iframe injection
+    - also fixed PDF filename problem (may contain illegal characters such as "|", ":")
+
 ## Access
 ### Chrome extension store
 Link: https://chromewebstore.google.com/detail/km%E7%B3%BB%E7%B5%B1ppt%E4%B8%8B%E8%BC%89%E5%B0%8F%E5%B7%A5%E5%85%B7/midljoaeebpamehboknphanpdakadmll
