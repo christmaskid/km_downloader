@@ -3,8 +3,11 @@
 只會對台大醫學院內科網站和醫學系共筆大平台開放使用，不會有其他任何網站的權限。
 
 ## Update records
-- v1.2: update for iframe injection
+- v1.2: update for iframe injection (video tag name change)
     - also fixed PDF filename problem (may contain illegal characters such as "|", ":")
+  v1.2.1: fix timestamp tag name change
+    - add duplicated slide highlight in orange as a hint for duplication deletion
+      (content not checked, only based on slide title in timestamp)
 
 ## Access
 ### Chrome extension store

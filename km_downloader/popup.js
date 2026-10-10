@@ -203,6 +203,8 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
     }
 
     const imageBlobs = [];
+    const capturedTimes = [];
+    const capturedNames = [];
     const duration = video.duration;
     const saveSizeConst = 1;
 
@@ -234,23 +236,47 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
       return diffPixels / totalPixels;
     }
 
-    // Extract timestamps from slide index
-    const slideIndex = document.querySelector('.module.mod_media.mod_media-index .indexBox.edit');
-    const slideIndexItems = slideIndex?.querySelectorAll('li.idx.js-index-item[data-time]') || [];
-    const timestamps = [];
-    
-    slideIndexItems.forEach(item => {
-      const dataTime = item.getAttribute('data-time');
-      if (dataTime) {
-        const timeInSeconds = parseInt(dataTime) / 1000; // Convert milliseconds to seconds
-        timestamps.push(timeInSeconds);
+    // Extract timestamps from both the legacy index and the current player index.
+    function parseTimestamp(value, attributeName) {
+      if (!value) return null;
+
+      const normalizedValue = value.trim();
+      if (normalizedValue.includes(':')) {
+        const parts = normalizedValue.split(':').map(Number);
+        if (parts.some(part => !Number.isFinite(part))) return null;
+        return parts.reduce((seconds, part) => seconds * 60 + part, 0);
       }
-    });
+
+      const numericValue = Number(normalizedValue);
+      if (!Number.isFinite(numericValue) || numericValue < 0) return null;
+
+      // The legacy data-time attribute is in milliseconds.
+      return attributeName === 'data-time' ? numericValue / 1000 : numericValue;
+    }
+
+    const timestampItems = document.querySelectorAll([
+      '.module.mod_media.mod_media-index .indexBox.edit li[data-time]',
+      '.fs-index-wrap.fs-player-action ul.list li.fs-index-li[title]'
+    ].join(', '));
+    const timestampEntries = Array.from(timestampItems)
+      .map(item => {
+        const attributeName = ['data-time', 'title']
+          .find(name => item.hasAttribute(name));
+        return {
+          time: parseTimestamp(item.getAttribute(attributeName), attributeName),
+          name: item.textContent.trim().replace(/^\d+\.\s*/, '')
+        };
+      })
+      .filter(entry => entry.time !== null && entry.time <= duration)
+      .sort((a, b) => a.time - b.time)
+      .filter((entry, index, values) => index === 0 || entry.time !== values[index - 1].time);
+    const timestamps = timestampEntries.map(entry => entry.time);
+    const timestampNames = timestampEntries.map(entry => entry.name);
     
     console.log(`Found ${timestamps.length} slide timestamps:`, timestamps);
     
-    // If no timestamps found, fall back to original method
-    if (timestamps.length <= 3) {
+    // If no timestamps were found, fall back to the original frame comparison.
+    if (timestamps.length === 0) {
       console.log("No slide timestamps found, using original frame extraction method");
       let previousFrameData = null;
 
@@ -274,6 +300,7 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
                 canvas.toBlob(blob => {
                   if (blob) {
                     imageBlobs.push(blob);
+                    capturedTimes.push(time);
                     console.log(`Frame at ${time}s: ${(difference * 100).toFixed(1)}% different`);
                     console.log(`Saved frame at ${time}s (${imageBlobs.length} frames total)`);
                   }
@@ -300,19 +327,22 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
         alert("Fail to extract any frame.");
         return;
       }
-      await openFrameManagerWrapper(imageBlobs, title);
+      await openFrameManagerWrapper(imageBlobs, title, capturedTimes);
 
     } else {
       // Use slide timestamps for precise frame extraction
       // --- 修改：計算每兩個timestamp的中間時間 ---
       const captureTimes = [];
+      const captureNames = [];
       for (let i = 0; i < timestamps.length - 1; i++) {
         const mid = (timestamps[i] + timestamps[i + 1]) / 2;
         captureTimes.push(mid);
+        captureNames.push(timestampNames[i]);
       }
       // 最後一張用最後一個timestamp
       if (timestamps.length > 0) {
         captureTimes.push(timestamps[timestamps.length - 1]);
+        captureNames.push(timestampNames[timestampNames.length - 1]);
       }
 
       for (let i = 0; i < captureTimes.length; i++) {
@@ -328,6 +358,8 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
               canvas.toBlob(blob => {
                 if (blob) {
                   imageBlobs.push(blob);
+                  capturedTimes.push(time);
+                  capturedNames.push(captureNames[i]);
                   console.log(`Captured slide ${i + 1} at ${time}s`);
                 }
                 resolve();
@@ -345,10 +377,10 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
         return;
       }
       // createPdfWrapper(imageBlobs, title);
-      await openFrameManagerWrapper(imageBlobs, title);
+      await openFrameManagerWrapper(imageBlobs, title, capturedTimes, capturedNames);
     }
   }
-  async function openFrameManagerWrapper(imageBlobs, title) {
+  async function openFrameManagerWrapper(imageBlobs, title, frameTimes = [], frameNames = []) {
     console.log(`openFrameManagerWrapper called with ${imageBlobs.length} blobs`);
     // Convert blobs to data URLs for messaging
     const frameData = []; 
@@ -368,7 +400,8 @@ async function extractAndDownload(selectBestQuality, frameRate, differenceThresh
         });
         frameData.push({
           url: dataURL, // Use data URL instead of blob URL
-          time: (i * frameRate).toFixed(1)
+          time: (frameTimes[i] ?? i * frameRate).toFixed(1),
+          name: frameNames[i] || ''
         });
       } catch (err) {
         console.error(`Error converting blob ${i} to data URL:`, err);

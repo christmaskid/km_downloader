@@ -113,6 +113,7 @@ function renderFrames() {
     const frameItem = createFrameElement(frame, index);
     container.appendChild(frameItem);
   });
+  updateDuplicateHighlights();
 }
 
 // Efficiently append only new frames without re-rendering existing ones
@@ -126,6 +127,28 @@ function appendNewFrames(newFrames, startIndex) {
     const globalIndex = startIndex + batchIndex;
     const frameItem = createFrameElement(frame, globalIndex);
     container.appendChild(frameItem);
+  });
+  updateDuplicateHighlights();
+}
+
+function updateDuplicateHighlights() {
+  const firstIndexByName = new Map();
+  const duplicateIndices = new Set();
+
+  frames.forEach((frame, index) => {
+    const name = frame.name?.trim().toLocaleLowerCase();
+    if (!name) return;
+
+    if (firstIndexByName.has(name)) {
+      duplicateIndices.add(index);
+    } else {
+      firstIndexByName.set(name, index);
+    }
+  });
+
+  document.querySelectorAll('.frame-item').forEach(frameElement => {
+    const index = Number(frameElement.dataset.index);
+    frameElement.classList.toggle('duplicate-name', duplicateIndices.has(index));
   });
 }
 
@@ -156,7 +179,7 @@ function createFrameElement(frame, index) {
   frameDiv.innerHTML = `
     <img src="${frame.url}" alt="Frame ${index + 1}" class="frame-image">
     <div class="frame-info">
-      <div class="frame-number">Frame ${index + 1}</div>
+      <div class="frame-number"></div>
       <div class="frame-time">Time: ${frame.time}s</div>
       <div class="frame-actions">
         <button class="move-btn move-up-btn" data-index="${index}">↑</button>
@@ -165,6 +188,9 @@ function createFrameElement(frame, index) {
       </div>
     </div>
   `;
+
+  frameDiv.querySelector('.frame-number').textContent = frame.name || `Frame ${index + 1}`;
+  frameDiv.querySelector('.frame-image').alt = frame.name || `Frame ${index + 1}`;
   
   // Add event listeners for buttons
   const moveUpBtn = frameDiv.querySelector('.move-up-btn');
